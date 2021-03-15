@@ -1,0 +1,57 @@
+subprojects { Project project ->
+    //region publishGAV
+    ext.publishGAV = { String gav ->    
+        println 'publishGAV->' + gav
+        project.with(initPublishModuleName)
+        apply plugin: 'maven-publish'
+        project.afterEvaluate {
+            task sourceJar(type: Jar) {
+                if (project.hasProperty('android')) {
+                    from android.sourceSets.main.java.srcDirs
+                } else {
+                    from sourceSets.main.allSource
+                }
+                classifier 'sources'
+            }
+            publishing {
+                publications {
+                    maven(MavenPublication) {
+                        if (project.plugins.hasPlugin('com.android.library')) {
+                            from components.release
+                        } else if (project.plugins.hasPlugin('java-library') || project.plugins.hasPlugin('java')) {
+                            from components.java
+                        }
+                        artifact(sourceJar)
+                        def data = gav.split(":")
+                        groupId = data[0]
+                        artifactId = data[1]
+                        version = data[2]
+                    }
+                }
+            }
+        }
+    }
+    //endregion
+    //region initPublishModuleName
+    ext.publishModuleName = {
+        def PUBLISH_GROUP_ID = 'com.github.DonaldDu_' + rootProject.name
+        def PUBLISH_ARTIFACT_ID = project.name
+        return ['-module-name', "${PUBLISH_GROUP_ID}_${PUBLISH_ARTIFACT_ID}"]
+    }
+    ext.initPublishModuleName = {
+        if (project.plugins.hasPlugin('com.android.library') && project.plugins.hasPlugin('kotlin-android')) {
+            android {
+                kotlinOptions {
+                    freeCompilerArgs += publishModuleName()
+                }
+            }
+        } else if (project.plugins.hasPlugin('kotlin')) {
+            compileKotlin {
+                kotlinOptions {
+                    freeCompilerArgs += publishModuleName()
+                }
+            }
+        }
+    }
+    //endregion
+}
